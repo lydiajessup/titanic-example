@@ -12,6 +12,33 @@
 
     </head>
     <body>
+        <h1>Explore the Titanic: Don't let Go, Jack</h1>
+        
+        <div class="container">
+            <div class="controls">
+                <h2>controls</h2>
+                <h3>data[age, fare, is_female]</h3>
+
+                <input id="ageInput" type="range" min="0" max="80" step="1">
+                <label for="ageInput">age: <span id="ageInputText"></span> years old</label>
+                <br/>
+                <input id="fareInput" type="range" min="0" max="550" step="1">
+                <label for="fareInput">fare: $<span id="fareInputText"></span></label>
+                <br/>
+                <select name="sex" id="sexInput">
+                    <option value="1">Female</option>
+                    <option value="0">Male</option>
+                </select>
+
+                <br/>
+                <button id="predictBtn">Predict</button>
+            </div>
+
+            <div class="predictions">
+                <p>Results of the prediction...</p>
+                <p id="predictionText"></p>
+            </div>
+        </div>
         <script src="NeuralNet.js"></script>
         <script src="sketch.js"></script>
     </body>

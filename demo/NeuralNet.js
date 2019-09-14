@@ -187,6 +187,22 @@ class NeuralNet {
         }
     }
 
+    async  predictSample(sample) {
+        console.log(sample)
+        let result = this.model.predict(tf.tensor(sample, [1,sample.length])).arraySync();
+        var maxValue = 0;
+        var predictedSurvival = 2;
+        //console.log(result[0][0]);
+        for (var i = 0; i < NUM_SURVIVED_CLASSES; i++) {
+          if (result[0][i] > maxValue) {
+            predictedSurvival = i;
+          }
+        }
+        //console.log(predictedSurvival);
+        return this.survivedCode(predictedSurvival);
+      
+      }
+
     // Determines accuracy evaluation for a given pitch class by index
     calcSurvivedEval(survivedIndex, classSize, values) {
         // From example: Output has 7 different class values for each pitch, offset based on
@@ -213,7 +229,7 @@ class NeuralNet {
         await this.data.validating.normalized.forEachAsync(survivedBatch => {
             const values = this.model.predict(survivedBatch.xs).dataSync();
             //console.log(values);
-            const classSize = this.data.training.summary.len / NUM_SURVIVED_CLASSES;
+            const classSize = Math.floor(this.data.training.summary.len / NUM_SURVIVED_CLASSES);
             for (let i = 0; i < NUM_SURVIVED_CLASSES; i++) {
                 results[this.survivedCode(i)] = {
                     training: this.calcSurvivedEval(i, classSize, values)
@@ -225,14 +241,14 @@ class NeuralNet {
             await this.data.testing.normalized.forEachAsync(survivedBatch => {
                 const values = this.model.predict(survivedBatch.xs).dataSync();
                 //console.log(values);
-                const classSize = this.data.testing.summary.len / NUM_SURVIVED_CLASSES;
+                const classSize = Math.floor(this.data.testing.summary.len / NUM_SURVIVED_CLASSES);
                 //console.log(classSize); this is fine
                 for (let i = 0; i < NUM_SURVIVED_CLASSES; i++) {
                     results[this.survivedCode(i)].validation =
                         this.calcSurvivedEval(i, classSize, values);
                 }
                 //this is the area that is a problem...
-                //console.log(calcSurvivedEval(1, classSize, values));
+                // console.log(calcSurvivedEval(1, classSize, values));
             });
         }
         return results;
