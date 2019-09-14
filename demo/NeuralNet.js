@@ -4,6 +4,7 @@ const TEST_DATA_LENGTH = 393;
 
 class NeuralNet {
     constructor() {
+
         this.data = {
             training: {
                 data: null,
@@ -26,7 +27,7 @@ class NeuralNet {
 
     }
 
-    loadModel(){
+    loadModel() {
         this.model = tf.sequential();
 
         this.model.add(tf.layers.dense({
@@ -58,24 +59,28 @@ class NeuralNet {
     }
 
 
-    async loadCSV(DATA_URL, options) {
-        this.data.training.data = await tf.data.csv(DATA_URL, options)
+    async loadCSV(DATA_URL, dataCategory, options) {
+        this.data[dataCategory].data = await tf.data.csv(DATA_URL, options)
     }
 
-    async summarize(dataCategory) {
+    async prepareData(dataCategory) {
 
         switch (dataCategory.toLowerCase()) {
             case 'training':
-                await this.summarizeInternal(this.data.training.data, 'training');
+                await this.summarize(this.data.training.data, 'training');
                 await this.normalizeData(this.data.training.data, 'training')
+                await this.shuffleData('training');
+                await this.setBatchSize('training', 100)
                 return;
             case 'testing':
-                this.summarizeInternal(this.data.testing.data, 'testing');
+                this.summarize(this.data.testing.data, 'testing');
                 await this.normalizeData(this.data.testing.data, 'testing')
+                await this.setBatchSize('testing')
                 return;
-            case 'valdating':
-                this.summarizeInternal(this.data.validating.data, 'validating');
+            case 'validating':
+                this.summarize(this.data.validating.data, 'validating');
                 await this.normalizeData(this.data.validating.data, 'validating')
+                await this.setBatchSize('validating')
                 return;
             default:
                 return;
@@ -83,7 +88,7 @@ class NeuralNet {
 
     }
 
-    async summarizeInternal(dataset, dataCategory) {
+    async summarize(dataset, dataCategory) {
 
         // TODO clean up!
         const dataArray = await dataset.toArray();
@@ -119,6 +124,7 @@ class NeuralNet {
         })
 
         // console.log(summary)
+        summary.len = arrayX.length;
         this.data[dataCategory].summary = summary;
     }
 
@@ -146,20 +152,19 @@ class NeuralNet {
     }
 
 
-    csvTransform({
-        xs,
-        ys
-    }) {
-        const values = [
-            normalize(xs.age, 0, 100),
-            normalize(xs.fare, 0, 100),
-            xs.is_female //since this is already binary 0 and 1 we don't need to normalize
-            //leaving out class for now
-        ];
-        return {
-            xs: values,
-            ys: ys.survived
-        };
+
+    async shuffleData(dataCategory) {
+        const arr = await this.data[dataCategory].data.toArray()
+        const len = arr.length;
+        this.data[dataCategory].normalized = await this.data[dataCategory].normalized.shuffle(len);
+    }
+
+    async setBatchSize(dataCategory, batchLength) {
+        const arr = await this.data[dataCategory].data.toArray()
+        const len = arr.length;
+        batchLength = (typeof batchLength !== 'undefined') ? batchLength : len
+
+        this.data[dataCategory].normalized = await this.data[dataCategory].normalized.batch(batchLength);
     }
 
 
@@ -170,34 +175,80 @@ class NeuralNet {
         return (value - min) / (max - min);
     }
 
+    // Returns the string value for Baseball pitch labels
+    survivedCode(classNum) {
+        switch (classNum) {
+            case 0:
+                return 'Did not survive';
+            case 1:
+                return 'Survived!';
+            default:
+                return 'Unknown';
+        }
+    }
+
+    // Determines accuracy evaluation for a given pitch class by index
+    calcSurvivedEval(survivedIndex, classSize, values) {
+        // From example: Output has 7 different class values for each pitch, offset based on
+        // which pitch class (ordered by i)
+        // console.log(values);
+        // console.log(classSize);
+        let index = (survivedIndex * classSize * NUM_SURVIVED_CLASSES) + survivedIndex;
+        let total = 0;
+
+        for (let i = 0; i < classSize; i++) {
+            //console.log(values[index]); <-- something wrong with this
+            total += values[index];
+            index += NUM_SURVIVED_CLASSES;
+            //console.log(index);
+            //console.log(total);
+        }
+        //console.log(classSize);
+        return total / classSize;
+    }
+
+
+    async evaluate(useTestData) {
+        let results = {};
+        await this.data.validating.normalized.forEachAsync(survivedBatch => {
+            const values = this.model.predict(survivedBatch.xs).dataSync();
+            //console.log(values);
+            const classSize = this.data.training.summary.len / NUM_SURVIVED_CLASSES;
+            for (let i = 0; i < NUM_SURVIVED_CLASSES; i++) {
+                results[this.survivedCode(i)] = {
+                    training: this.calcSurvivedEval(i, classSize, values)
+                };
+            }
+        });
+
+        if (useTestData) {
+            await this.data.testing.normalized.forEachAsync(survivedBatch => {
+                const values = this.model.predict(survivedBatch.xs).dataSync();
+                //console.log(values);
+                const classSize = this.data.testing.summary.len / NUM_SURVIVED_CLASSES;
+                //console.log(classSize); this is fine
+                for (let i = 0; i < NUM_SURVIVED_CLASSES; i++) {
+                    results[this.survivedCode(i)].validation =
+                        this.calcSurvivedEval(i, classSize, values);
+                }
+                //this is the area that is a problem...
+                //console.log(calcSurvivedEval(1, classSize, values));
+            });
+        }
+        return results;
+    }
+
+    async train() {
+
+        let numTrainingIterations = 10;
+
+        for (var i = 0; i < numTrainingIterations; i++) {
+            console.log(`Training iteration : ${i+1} / ${numTrainingIterations}`);
+            await this.model.fitDataset(this.data.training.normalized, {
+                epochs: 1
+            });
+            console.log('accuracyPerClass', await this.evaluate(true));
+        }
+    }
 
 }
-
-
-// const csvTransform =
-//     ({xs, ys}) => {
-//       const values = [
-//         normalize(xs.age, AGE_MIN, AGE_MAX),
-//         normalize(xs.fare, FARE_MIN, FARE_MAX),
-//         xs.is_female //since this is already binary 0 and 1 we don't need to normalize
-//         //leaving out class for now
-//       ];
-//       return {xs: values, ys: ys.survived};
-//     }
-
-// async loadTrainingData(dataUrl, dataCategory, options) {
-//     switch (dataCategory.toLowerCase()) {
-//         case 'training':
-//             // options =  {columnConfigs: {survived: {isLabel: true}}}
-//             this.data.training = await tf.data.csv(TRAIN_DATA_PATH, options);
-//             return;
-//         case 'testing':
-//             // options =  {columnConfigs: {survived: {isLabel: true}}}
-//             this.data.training = await tf.data.csv(TRAIN_DATA_PATH, options);
-//             return;
-//         case 'validating':
-//             // options =  {columnConfigs: {survived: {isLabel: true}}}
-//             this.data.training = await tf.data.csv(TRAIN_DATA_PATH, options);
-//             return;
-//     }
-// }

@@ -9,8 +9,14 @@ async function setup() {
 
     neuralNet = new NeuralNet();
    
-    await neuralNet.loadCSV(TRAIN_DATA_PATH, dataset_options);
-    await neuralNet.summarize('training');
+    await neuralNet.loadCSV(TRAIN_DATA_PATH,  'training', dataset_options);
+    await neuralNet.loadCSV(TEST_DATA_PATH,  'testing', dataset_options);
+    await neuralNet.loadCSV(TRAIN_DATA_PATH,  'validating', dataset_options);
+    await neuralNet.prepareData('training');
+    await neuralNet.prepareData('testing');
+    await neuralNet.prepareData('validating');
+
+    await neuralNet.train();
     // console.log(neuralNet);
     
   }
