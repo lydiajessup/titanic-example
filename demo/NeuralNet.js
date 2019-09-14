@@ -164,6 +164,8 @@ class NeuralNet {
         const len = arr.length;
         batchLength = (typeof batchLength !== 'undefined') ? batchLength : len
 
+        console.log(batchLength)
+
         this.data[dataCategory].normalized = await this.data[dataCategory].normalized.batch(batchLength);
     }
 
@@ -256,12 +258,12 @@ class NeuralNet {
 
     async train() {
 
-        let numTrainingIterations = 10;
+        let numTrainingIterations = 20;
 
         for (var i = 0; i < numTrainingIterations; i++) {
             console.log(`Training iteration : ${i+1} / ${numTrainingIterations}`);
             await this.model.fitDataset(this.data.training.normalized, {
-                epochs: 1
+                epochs: 10
             });
             console.log('accuracyPerClass', await this.evaluate(true));
         }
