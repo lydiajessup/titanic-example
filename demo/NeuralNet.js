@@ -1,6 +1,6 @@
 const NUM_SURVIVED_CLASSES = 2;
-const TRAINING_DATA_LENGTH = 916;
-const TEST_DATA_LENGTH = 393;
+// const TRAINING_DATA_LENGTH = 916;
+// const TEST_DATA_LENGTH = 393;
 
 class NeuralNet {
     constructor() {
@@ -258,12 +258,12 @@ class NeuralNet {
 
     async train() {
 
-        let numTrainingIterations = 20;
+        let numTrainingIterations = 10;
 
         for (var i = 0; i < numTrainingIterations; i++) {
             console.log(`Training iteration : ${i+1} / ${numTrainingIterations}`);
             await this.model.fitDataset(this.data.training.normalized, {
-                epochs: 10
+                epochs: 1
             });
             console.log('accuracyPerClass', await this.evaluate(true));
         }
